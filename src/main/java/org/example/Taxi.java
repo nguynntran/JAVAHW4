@@ -6,8 +6,6 @@ import  java.util.concurrent.locks.ReentrantLock;
 // Interface Taxi
 interface Taxi extends Runnable {
     void placeOrder(String order);
-    void start();
-    void stop();
     boolean isBusy();
     void isAvailable();
     
@@ -40,16 +38,6 @@ class Taxiimpl implements Taxi {
         finally {
             lock.unlock();
         }
-    }
-
-    @Override
-    public void start() {
-
-    }
-
-    @Override
-    public void stop() {
-
     }
 
     @Override
