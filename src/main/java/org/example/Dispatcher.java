@@ -1,7 +1,7 @@
 package org.example;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -17,11 +17,12 @@ class Dispatcher implements DispatcherInterface {
     private final Condition taxiAvailable = lock.newCondition();
 
     @Override
+
     public void registerTaxi(Taxi taxi) {
         lock.lock();
         try{
             taxiQueue.add(taxi);
-            System.out.println("Dispatcher: Registered Taxi: ");
+            System.out.println("Dispatcher: Registered Taxi: " + ((Taxi) taxi).getTaxiId());
             taxiAvailable.signal();
     } finally {
             lock.unlock();
@@ -29,11 +30,12 @@ class Dispatcher implements DispatcherInterface {
     }
 
     @Override
+
     public void notifyOrderComplete(Taxi taxi) {
         lock.lock();
         try {
             taxiQueue.add(taxi); 
-            System.out.println("Taxi " + ((Taxiimpl) taxi).getTaxiId() + "is available again for new order");
+            System.out.println("Taxi " + ((Taxi) taxi).getTaxiId() + "is available again for new order");
             taxiAvailable.signal();
         } finally {
             lock.unlock();
@@ -41,30 +43,39 @@ class Dispatcher implements DispatcherInterface {
     }
 
     @Override
+
     public void run() {
         try {
             while (!Thread.currentThread().isInterrupted()) {
+                Taxi taxi = null;
+                String order = null;
+                
                 lock.lock();
                 try {
                     while (taxiQueue.isEmpty()) {
                         System.out.println("Dispatcher: Waiting for Taxi to be available");
                         taxiAvailable.await();
                     }
-                    Taxi taxi = taxiQueue.poll();
+                    taxi = taxiQueue.poll();
                     if (taxi != null) {
-                        String order = "Order for customer at address: " + new Random().nextInt(100);
-                        System.out.println("Dispatcher: Assigning " + order + " to Taxi" + ((Taxiimpl) taxi).getTaxiId());
-                        taxi.placeOrder(order);
+                        order = "Order for customer at address: " + ThreadLocalRandom.current().nextInt(100);
+                        System.out.println("Dispatcher: Assigning " + order + " to Taxi" + ((Taxi) taxi).getTaxiId());
                     }
                 } finally {
                     lock.unlock();
                 }
+                
+                
+                if (taxi != null) {
+                    taxi.placeOrder(order);
+                }
+                
                 // Simulate processing delay
-                Thread.sleep(500 + new Random().nextInt(1000));
+                Thread.sleep(500 + ThreadLocalRandom.current().nextInt(1000));
             }
         } catch(InterruptedException e) {
             System.out.println("Dispatcher: Interrupted");
         }
-    }
+    }   
 }
 

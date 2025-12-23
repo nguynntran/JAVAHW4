@@ -1,24 +1,25 @@
 package org.example;
-import java.util.Random;
-import  java.util.concurrent.locks.Lock;
-import  java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-// Interface Taxi
-interface Taxi extends Runnable {
+interface TaxiInterface extends Runnable {
     void placeOrder(String order);
     boolean isBusy();
-    void isAvailable();
+    void markAvailable();
     
 }
 
-class Taxiimpl implements Taxi {
+class Taxi implements TaxiInterface {
     private final int taxiId;
     private final Dispatcher dispatcher;
     private boolean busy = false;
     private final Lock lock = new ReentrantLock();
+    private final Condition orderReceived = lock.newCondition();
     private String currentOrder = null;
 
-    public Taxiimpl(int taxiId, Dispatcher dispatcher) {
+    public Taxi(int taxiId, Dispatcher dispatcher) {
         this.taxiId = taxiId;
         this.dispatcher = dispatcher;
     }
@@ -28,12 +29,14 @@ class Taxiimpl implements Taxi {
     }
 
     @Override
+
     public void placeOrder(String order) {
         lock.lock();
         try{
             busy = true;
             currentOrder = order;
             System.out.println("Taxi " + taxiId + ": Received " + order);
+            orderReceived.signal();
         }
         finally {
             lock.unlock();
@@ -41,6 +44,7 @@ class Taxiimpl implements Taxi {
     }
 
     @Override
+
     public boolean isBusy() {
         lock.lock();
         try{
@@ -52,7 +56,8 @@ class Taxiimpl implements Taxi {
     }
 
     @Override
-    public void isAvailable() {
+
+    public void markAvailable() {
         lock.lock();
         try
             {
@@ -65,18 +70,25 @@ class Taxiimpl implements Taxi {
     }
 
     @Override
+
     public void run() {
         try{
             while (!Thread.currentThread().isInterrupted()) {
-                if(isBusy()) {
-                    int deliveryTime = 1000 + new Random().nextInt(5000);
-                    System.out.println("Taxi " + taxiId + " delivering " + deliveryTime);
-                    Thread.sleep(deliveryTime);
-                    System.out.println("Taxi " + taxiId + ": Order completed in " + deliveryTime);
-                    isAvailable();
+                lock.lock();
+                try {
+                    while (!busy) {
+                        orderReceived.await();
+                    }
+                } finally {
+                    lock.unlock();
                 }
+                
+                int deliveryTime = 1000 + ThreadLocalRandom.current().nextInt(5000);
+                System.out.println("Taxi " + taxiId + " delivering " + deliveryTime);
+                Thread.sleep(deliveryTime);
+                System.out.println("Taxi " + taxiId + ": Order completed in " + deliveryTime);
+                markAvailable();
             }
-            Thread.sleep(1000);
         } catch (InterruptedException e) {
             System.out.println("Taxi " + taxiId + ": Interrupted");
         }
